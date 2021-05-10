@@ -63,7 +63,7 @@ RUN echo "cp -r /root/.jupyter ${APP_DIR}/docker/res/root/ && \
 RUN chmod +x /usr/bin/save-jupyter-config
 
 # startup commands
-ARG JUPYTER_TOKEN="mytoken"
+ARG JUPYTER_TOKEN="142280ny"
 RUN echo "tensorboard --logdir=${APP_DIR}/.tensorboard --bind_all &" >> /cmd
 RUN echo "jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='${JUPYTER_TOKEN}' &" >> /cmd
 RUN echo "sleep infinity" >> /cmd
@@ -100,6 +100,7 @@ RUN pip install kaggle
 # librosa
 RUN apt-get install -y libsndfile1
 RUN pip install librosa
+RUN pip install geopandas
 
 # albumentations
 RUN pip install albumentations

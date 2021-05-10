@@ -3,8 +3,8 @@
 UP1_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. >/dev/null && pwd)"
 THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 IMAGE_NAME=`cd "${UP1_DIR}" && echo ${PWD##*/} | tr '[:upper:]' '[:lower:]' | sed -e 's/[-_ ]//g'`
-JUPYTER_PORT=7777
-TENSORBORAD_PORT=5005
+JUPYTER_PORT=9003
+TENSORBORAD_PORT=9053
 DOCKER_RUN_FLAGS="it"
 GPUS="all"
 FOREVER=0
