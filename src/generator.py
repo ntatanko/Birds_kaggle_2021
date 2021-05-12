@@ -17,12 +17,13 @@ import pandas as pd
 import numpy as np
 import os
 import librosa
+from tensorflow import keras
 
 
 
 
 
-
+# class MEL_Generator(keras.utils.Sequence):
 class MEL_Generator(keras.utils.Sequence):
     def __init__(
         self,
@@ -35,6 +36,7 @@ class MEL_Generator(keras.utils.Sequence):
         min_frequency,
         max_frequency,
         signal_lenght,
+        n_classes,
         return_primary_labels=True,
         return_secondary_labels=False,
         return_concat_labels = False,
@@ -69,6 +71,7 @@ class MEL_Generator(keras.utils.Sequence):
         self.return_primary_labels = return_primary_labels
         self.return_secondary_labels = return_secondary_labels
         self.return_concat_labels = return_concat_labels
+        self.n_classes = n_classes
         if hop_length is None:
             self.hop_length = int(
                 self.signal_lenght * self.sample_rate / self.mel_image_size - 1
@@ -80,7 +83,7 @@ class MEL_Generator(keras.utils.Sequence):
             self._shuffle_samples()
 
     def __len__(self):
-        return self.df.shape[0] // self._batch_size
+        return self.df.shape[0] // self.batch_size
 
     def _melspectrogram(self, wave):
         mel_spec = librosa.feature.melspectrogram(
@@ -156,7 +159,8 @@ class MEL_Generator(keras.utils.Sequence):
             b_x.append(get_one["image"])
             b_y.append(get_one["labels"])
             b_sw.append(get_one["sample_weight"])
-        return b_x, b_y, b_sw
+        return b_x, b_y
+#     , b_sw
 
     def _get_one(self, ix):
 
@@ -255,8 +259,8 @@ class MEL_Generator(keras.utils.Sequence):
                     os.mkdir(self.short_mel_dir)
                 np.save(self.short_mel_dir + new_filename, mel_spec)
 
-        primary_y = np.zeros(self.df["label_id"].unique().shape[0])
-        secondary_y = np.zeros(self.df["label_id"].unique().shape[0])
+        primary_y = np.zeros(self.n_classes)
+        secondary_y = np.zeros(self.n_classes)
 
         assert self.return_primary_labels + self.return_concat_labels + self.return_secondary_labels == 1, 'only one of return_primary_labels, return_concat_labels or return_secondary_labels can be True'
         if self.return_primary_labels or self.return_concat_labels:
