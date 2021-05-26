@@ -29,7 +29,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
     from tensorflow import keras
     from lib.float2d_to_rgb_layer import Float2DToRGB
     from lib.melspectrogram_layer import MelSpectrogram
-    from lib.power_to_db_layer import PowerToDB
+    from lib.power_to_db_layer import PowerToDb
     N_FFT = 2048
     N_MELS = 256
     N_TIMESTEPS = 256
@@ -47,7 +47,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
         hop_length=WAVE_LEN_SAMPLES // (N_TIMESTEPS - 1),
         power=POWER,
     )(x)
-    o_float = x = PowerToDB()(x)
+    o_float = x = PowerToDb()(x)
     o_rgb = x = Float2DToRGB()(x)
     m = keras.models.Model(inputs=[i_wave], outputs=[o_float, o_rgb])
     msgs_f, msgs_rgb = m.predict(waves)
@@ -61,7 +61,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
         self,
         sample_rate,
         fft_size,
-        hop_length,
+        hop_size,
         n_mels,
         f_min=0.0,
         f_max=None,
@@ -76,7 +76,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
         self._n_mels = n_mels
         self._pad_end = pad_end
         self._fft_size = fft_size
-        self._hop_length = hop_length
+        self._hop_size = hop_size
         self._sample_rate = sample_rate
         self._f_max = f_max if f_max is not None else sample_rate // 2
 
@@ -107,7 +107,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
         spectrograms = tf.signal.stft(
             tf.cast(waveforms, tf.float32),
             frame_length=self._fft_size,
-            frame_step=self._hop_length,
+            frame_step=self._hop_size,
             pad_end=self._pad_end,
         )
 
@@ -129,7 +129,7 @@ class MelSpectrogram(tf.keras.layers.Layer):
             "n_mels": self._n_mels,
             "pad_end": self._pad_end,
             "fft_size": self._fft_size,
-            "hop_size": self._hop_length,
+            "hop_size": self._hop_size,
             "sample_rate": self._sample_rate,
         }
 

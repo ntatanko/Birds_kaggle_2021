@@ -52,7 +52,6 @@ class Functions:
         df,
         labels,
         pred_col,
-        out_col="y_pred",
         boost_coef=1.1,
         max_boost_coef=12,
         threshold=0.5,
@@ -114,6 +113,7 @@ class Mel_Provider:
         self.signal_lenght = signal_lenght
         self.sample_rate = sample_rate
         self.mel_image_size = mel_image_size
+        self.img_dtype = img_dtype
         if hop_length is None:
             self.hop_length = int(
                 self.signal_lenght * self.sample_rate / (self.mel_image_size - 1)
@@ -156,6 +156,7 @@ class Test_Kaggle:
         norm_mel_short = True,
         hop_length=None,
         device="cpu",
+        img_dtype='uint8'
     ):
         self.path = path
         self._device = device
@@ -170,6 +171,7 @@ class Test_Kaggle:
         self.n_fft = n_fft
         self.df_coord_sites = df_coord_sites
         self.dict_birds = dict_birds
+        self.img_dtype = img_dtype
 
     def make_df(self):
         path = self.path
@@ -204,7 +206,7 @@ class Test_Kaggle:
         df["sin_longitude"] = np.sin(2 * np.pi * (df["longitude"]) / 360)
         df["cos_longitude"] = np.cos(2 * np.pi * (df["longitude"]) / 360)
         df["norm_latitude"] = (df["latitude"] + 90) / 180
-        df["audio_id"] = df["audio_id"].astype("int")
+        df["audio_id"] = df["audio_id"]
         return df
 
     def get_audio(self, file_path):
@@ -214,7 +216,6 @@ class Test_Kaggle:
 
     def make_prediction(self, df, model, thresh=0.5, predict=True, return_mels=False):
         path = self.path
-#         pred_df = pd.DataFrame(columns=["filename", "row_id", "y_pred", "birds"])
         dict_row_id = {}
         predictions = {}
         for ix in df.index.tolist():
@@ -237,9 +238,15 @@ class Test_Kaggle:
                 if self.norm_mel_short:
                     mel_short = (mel_short - mel_short.min()) / (
                 mel_short.max() - mel_short.min()
-            )*255
+            )
                 else:
-                    mel_short = mel_short * 255
+                    mel_short = mel_short
+                    
+                if img_dtype=='uint8':
+                    max_value = 255
+                else:
+                    max_value=1
+                
                 if mel_short.shape != (self.mel_image_size, self.mel_image_size):
                     mel_short = Image.fromarray(mel_short)
                     mel_short = mel_short.resize(
@@ -250,58 +257,69 @@ class Test_Kaggle:
                 mel_short = np.repeat(
                     np.expand_dims(mel_short.astype(np.uint8), 2), 3, 2
                 )
-                mel_short[self.mel_image_size - 15 :, :20, 0] = (
-                    255 * df.loc[ix, "sin_month"]
+                #         sin_month
+                mel_spec[self.mel_image_size - 10:, :20, 0] = (
+                    max_value * self.df.loc[ix, "sin_month"]
                 )
-                mel_short[self.mel_image_size - 15 :, :20, 1] = 255
-                mel_short[self.mel_image_size - 15 :, :20, 2] = 0
-                mel_short[self.mel_image_size - 15 :, 20:40, 0] = 255
-                mel_short[self.mel_image_size - 15 :, 20:40, 1] = (
-                    255 * df.loc[ix, "cos_month"]
+                mel_spec[self.mel_image_size - 10:, :20, 1] = max_value
+                mel_spec[self.mel_image_size - 10:, :20, 2] = max_value
+        #         cos_month
+                mel_spec[self.mel_image_size - 10:, 20:40, 0] = max_value
+                mel_spec[self.mel_image_size - 10:, 20:40, 1] = (
+                    max_value * self.df.loc[ix, "cos_month"]
                 )
-                mel_short[self.mel_image_size - 15 :, 20:40, 2] = 0
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                mel_spec[self.mel_image_size - 10:, 20:40, 2] = max_value
+        #         year
+                mel_spec[self.mel_image_size - 10:, 40:60, 0] = max_value
+                mel_spec[self.mel_image_size - 10:, 40:60, 1] = max_value
+                mel_spec[self.mel_image_size - 10:, 40:60, 2] = (
+                    max_value * (2021 - self.df.loc[ix, "year"])/50
+                )
+        #         sin_longitude
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     0,
                 ] = (
-                    255 * df.loc[ix, "sin_longitude"]
+                    max_value * self.df.loc[ix, "sin_longitude"]
                 )
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     1,
-                ] = 255
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                ] = max_value
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     2,
-                ] = 255
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                ] = max_value
+        #         cos_longitude
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     0,
-                ] = 255
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                ] = max_value
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     1,
                 ] = (
-                    255 * df.loc[ix, "cos_longitude"]
+                    max_value * self.df.loc[ix, "cos_longitude"]
                 )
-                mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                mel_spec[
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     2,
-                ] = 255
-                mel_short[
-                    self.mel_image_size - 15 :, self.mel_image_size - 20 :, 0
-                ] = 255
-                mel_short[
-                    self.mel_image_size - 15 :, self.mel_image_size - 20 :, 1
-                ] = 255
-                mel_short[self.mel_image_size - 15 :, self.mel_image_size - 20 :, 2] = (
-                    255 * df.loc[ix, "norm_latitude"]
+                ] = max_value
+        #         norm_latitude
+                mel_spec[
+                    self.mel_image_size - 10:, self.mel_image_size - 20:, 0
+                ] = max_value
+                mel_spec[
+                    self.mel_image_size - 10:, self.mel_image_size - 20:, 1
+                ] = max_value
+                mel_spec[self.mel_image_size - 10:, self.mel_image_size - 20:, 2] = (
+                    max_value * self.df.loc[ix, "norm_latitude"]
                 )
                 list_mels.append([row_id, mel_short])
 
@@ -309,8 +327,6 @@ class Test_Kaggle:
                     mel_short = tf.expand_dims(mel_short, axis=0)
                     pred = model.predict(mel_short)[0]
                     dict_row_id[row_id] = wave_name
-#                     pred_df.loc[row_id, "filename"] = wave_name
-#                     pred_df.loc[row_id, "row_id"] = row_id
                     predictions[row_id] = pred
         predictions = pd.DataFrame(predictions).T
         dict_row_id = pd.DataFrame(dict_row_id).T

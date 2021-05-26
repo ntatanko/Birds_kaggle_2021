@@ -148,9 +148,10 @@ class Test_Kaggle:
         mel_image_size,
         signal_lenght,
         mel_provider,
-        norm_mel_short=True,
+        norm_mel_short = True,
         hop_length=None,
         device="cpu",
+        img_dtype='uint8'
     ):
         self.path = path
         self._device = device
@@ -165,6 +166,7 @@ class Test_Kaggle:
         self.n_fft = n_fft
         self.df_coord_sites = df_coord_sites
         self.dict_birds = dict_birds
+        self.img_dtype = img_dtype
 
     def make_df(self):
         path = self.path
@@ -199,12 +201,13 @@ class Test_Kaggle:
         df["sin_longitude"] = np.sin(2 * np.pi * (df["longitude"]) / 360)
         df["cos_longitude"] = np.cos(2 * np.pi * (df["longitude"]) / 360)
         df["norm_latitude"] = (df["latitude"] + 90) / 180
-        df["audio_id"] = df["audio_id"].astype("int")
+        df["audio_id"] = df["audio_id"]
         return df
 
     def get_audio(self, file_path):
         wave, sr = librosa.load(file_path, sr=self.sample_rate)
         return wave
+
 
     def make_prediction(self, df, model, thresh=0.5, predict=True, return_mels=False):
         path = self.path
@@ -228,13 +231,12 @@ class Test_Kaggle:
                 mel_short = mel_spec[:, start : start + self.mel_image_size]
 
                 if self.norm_mel_short:
-                    mel_short = (
-                        (mel_short - mel_short.min())
-                        / (mel_short.max() - mel_short.min())
-                        * 255
-                    )
+                    mel_short = (mel_short - np.min(mel_short)) / (
+                np.max(mel_short) - np.min(mel_short)
+            )
                 else:
-                    mel_short = mel_short * 255
+                    mel_short = mel_short
+                
                 if mel_short.shape != (self.mel_image_size, self.mel_image_size):
                     mel_short = Image.fromarray(mel_short)
                     mel_short = mel_short.resize(
@@ -242,61 +244,81 @@ class Test_Kaggle:
                         Image.BICUBIC,
                     )
                     mel_short = np.array(mel_short)
-                mel_short = np.repeat(
+                if self.img_dtype=='uint8':
+                    max_value = 255
+                    mel_short = np.round(mel_short * max_value)
+                    mel_short = np.repeat(
                     np.expand_dims(mel_short.astype(np.uint8), 2), 3, 2
                 )
-                mel_short[self.mel_image_size - 15 :, :20, 0] = (
-                    255 * df.loc[ix, "sin_month"]
+                else:
+                    max_value=1
+                    mel_short = np.repeat(
+                    np.expand_dims(mel_short.astype(np.float32), 2), 3, 2
                 )
-                mel_short[self.mel_image_size - 15 :, :20, 1] = 255
-                mel_short[self.mel_image_size - 15 :, :20, 2] = 0
-                mel_short[self.mel_image_size - 15 :, 20:40, 0] = 255
-                mel_short[self.mel_image_size - 15 :, 20:40, 1] = (
-                    255 * df.loc[ix, "cos_month"]
+
+                #         sin_month
+                mel_short[self.mel_image_size - 10:, :20, 0] = (
+                    max_value * df.loc[ix, "sin_month"]
                 )
-                mel_short[self.mel_image_size - 15 :, 20:40, 2] = 0
+                mel_short[self.mel_image_size - 10:, :20, 1] = max_value
+                mel_short[self.mel_image_size - 10:, :20, 2] = max_value
+        #         cos_month
+                mel_short[self.mel_image_size - 10:, 20:40, 0] = max_value
+                mel_short[self.mel_image_size - 10:, 20:40, 1] = (
+                    max_value * df.loc[ix, "cos_month"]
+                )
+                mel_short[self.mel_image_size - 10:, 20:40, 2] = max_value
+        #         year
+                mel_short[self.mel_image_size - 10:, 40:60, 0] = max_value
+                mel_short[self.mel_image_size - 10:, 40:60, 1] = max_value
+                mel_short[self.mel_image_size - 10:, 40:60, 2] = (
+                    max_value * (2021 - df.loc[ix, "year"])/50
+                )
+        #         sin_longitude
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     0,
                 ] = (
-                    255 * df.loc[ix, "sin_longitude"]
+                    max_value * df.loc[ix, "sin_longitude"]
                 )
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     1,
-                ] = 255
+                ] = max_value
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 60 : self.mel_image_size - 40,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 60: self.mel_image_size - 40,
                     2,
-                ] = 255
+                ] = max_value
+        #         cos_longitude
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     0,
-                ] = 255
+                ] = max_value
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     1,
                 ] = (
-                    255 * df.loc[ix, "cos_longitude"]
+                    max_value * df.loc[ix, "cos_longitude"]
                 )
                 mel_short[
-                    self.mel_image_size - 15 :,
-                    self.mel_image_size - 40 : self.mel_image_size - 20,
+                    self.mel_image_size - 10:,
+                    self.mel_image_size - 40: self.mel_image_size - 20,
                     2,
-                ] = 255
+                ] = max_value
+        #         norm_latitude
                 mel_short[
-                    self.mel_image_size - 15 :, self.mel_image_size - 20 :, 0
-                ] = 255
+                    self.mel_image_size - 10:, self.mel_image_size - 20:, 0
+                ] = max_value
                 mel_short[
-                    self.mel_image_size - 15 :, self.mel_image_size - 20 :, 1
-                ] = 255
-                mel_short[self.mel_image_size - 15 :, self.mel_image_size - 20 :, 2] = (
-                    255 * df.loc[ix, "norm_latitude"]
+                    self.mel_image_size - 10:, self.mel_image_size - 20:, 1
+                ] = max_value
+                mel_short[self.mel_image_size - 10:, self.mel_image_size - 20:, 2] = (
+                    max_value * df.loc[ix, "norm_latitude"]
                 )
                 list_mels.append([row_id, mel_short])
 
@@ -305,12 +327,12 @@ class Test_Kaggle:
                     pred = model.predict(mel_short)[0]
                     dict_row_id[row_id] = wave_name
                     predictions[row_id] = pred
-        dict_row_id = pd.DataFrame(dict_row_id, index=[0]).T
-        dict_row_id['row_id'] = dict_row_id.index
-        dict_row_id.columns=['filename', 'row_id']
         predictions = pd.DataFrame(predictions).T
         predictions['row_id'] = predictions.index
-        pred_df = dict_row_id.merge(predictions, on="row_id")
+        dict_row_id = pd.DataFrame(dict_row_id, index=[0]).T
+        dict_row_id.columns=['filename']
+        dict_row_id['row_id'] = dict_row_id.index
+        pred_df = predictions.merge(dict_row_id, on='row_id')
         if predict:
             return pred_df
         if return_mels:

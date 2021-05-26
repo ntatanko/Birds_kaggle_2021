@@ -49,7 +49,6 @@ class Float2DToRGB(keras.layers.Layer):
         res = K.cast(res, "uint8")
         res = K.expand_dims(res, axis=3)
         res = K.repeat_elements(res, 3, 3)
-
         return res
 
     def get_config(self):
@@ -57,3 +56,21 @@ class Float2DToRGB(keras.layers.Layer):
             "E": self._e,
         }
 
+
+class Float2DToFloatRGB(keras.layers.Layer):
+    """Converts 2D float input to floatX RGB with mean=0, and std=1"""
+
+    def __init__(self, E=1e-7, **kwargs):
+        super(Float2DToFloatRGB, self).__init__(**kwargs)
+        self._e = E  # minimum value for division to avoid overflows
+
+    def call(self, inputs):
+        res = inputs - K.mean(inputs, axis=(1, 2), keepdims=True)
+        res /= K.std(res, axis=(1, 2), keepdims=True) + self._e
+        res = K.cast(res, K.floatx())
+        res = K.expand_dims(res, axis=3)
+        res = K.repeat_elements(res, 3, 3)
+        return res
+
+    def get_config(self):
+        return {"E": self._e}

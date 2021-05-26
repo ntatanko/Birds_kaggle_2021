@@ -21,9 +21,6 @@ from PIL import Image
 from tensorflow import keras
 
 # +
-MIN_GLOB = None
-MAX_GLOB = None
-
 
 class Mel_Provider:
     def __init__(
@@ -38,7 +35,6 @@ class Mel_Provider:
         signal_lenght,
         hop_length=None,
         norm_mel=True,
-        norm_global=False,
         device="cpu",
     ):
         self.norm_mel = norm_mel
@@ -76,12 +72,6 @@ class Mel_Provider:
             mel_spec = (mel_spec - np.min(mel_spec)) / (
                 np.max(mel_spec) - np.min(mel_spec)
             )
-        if self.norm_global:
-            _min = MIN_GLOB if MIN_GLOB < np.min(mel_spec) else np.min(mel_spec)
-            _max = MAX_GLOB if MAX_GLOB > np.max(mel_spec) else np.max(mel_spec)
-            mel_spec = (mel_spec - _min) / (
-                _max - _min
-            )
         mel_spec.astype(np.float32)
         return mel_spec
 
@@ -98,6 +88,7 @@ class MEL_Generator_Short(keras.utils.Sequence):
         signal_lenght,
         n_classes,
         seed,
+        img_dtype = 'uint8',
         mel_provider=Mel_Provider,
         return_primary_labels=False,
         return_secondary_labels=False,
@@ -131,6 +122,7 @@ class MEL_Generator_Short(keras.utils.Sequence):
         self.n_classes = n_classes
         self.seed = seed
         self.augment = augment
+        self.img_dtype = img_dtype
 
         if self._shuffle:
             self._shuffle_samples()
@@ -196,59 +188,64 @@ class MEL_Generator_Short(keras.utils.Sequence):
 
         return b_X, b_Y
 
-    def sin_cos(self, mel_spec, ix):
-        mel_spec[self.mel_image_size - 15:, :20, 0] = (
-            255 * self.df.loc[ix, "sin_month"]
+    def sin_cos(self, mel_spec, ix, img_dtype):
+        if self.img_dtype=='uint8':
+            max_value = 255
+        else:
+            max_value=1
+        min_value=0
+        mel_spec[self.mel_image_size - 10:, :20, 0] = (
+            max_value * self.df.loc[ix, "sin_month"]
         )
-        mel_spec[self.mel_image_size - 15:, :20, 1] = 255
-        mel_spec[self.mel_image_size - 15:, :20, 2] = 0
-        mel_spec[self.mel_image_size - 15:, 20:40, 0] = 255
-        mel_spec[self.mel_image_size - 15:, 20:40, 1] = (
-            255 * self.df.loc[ix, "cos_month"]
+        mel_spec[self.mel_image_size - 10:, :20, 1] = max_value
+        mel_spec[self.mel_image_size - 10:, :20, 2] = max_value
+        mel_spec[self.mel_image_size - 10:, 20:40, 0] = max_value
+        mel_spec[self.mel_image_size - 10:, 20:40, 1] = (
+            max_value * self.df.loc[ix, "cos_month"]
         )
-        mel_spec[self.mel_image_size - 15:, 20:40, 2] = 0
+        mel_spec[self.mel_image_size - 10:, 20:40, 2] = max_value
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 60: self.mel_image_size - 40,
             0,
         ] = (
-            255 * self.df.loc[ix, "sin_longitude"]
+            max_value * self.df.loc[ix, "sin_longitude"]
         )
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 60: self.mel_image_size - 40,
             1,
-        ] = 255
+        ] = max_value
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 60: self.mel_image_size - 40,
             2,
-        ] = 255
+        ] = max_value
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 40: self.mel_image_size - 20,
             0,
-        ] = 255
+        ] = max_value
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 40: self.mel_image_size - 20,
             1,
         ] = (
-            255 * self.df.loc[ix, "cos_longitude"]
+            max_value * self.df.loc[ix, "cos_longitude"]
         )
         mel_spec[
-            self.mel_image_size - 15:,
+            self.mel_image_size - 10:,
             self.mel_image_size - 40: self.mel_image_size - 20,
             2,
-        ] = 255
+        ] = max_value
         mel_spec[
-            self.mel_image_size - 15:, self.mel_image_size - 20:, 0
-        ] = 255
+            self.mel_image_size - 10:, self.mel_image_size - 20:, 0
+        ] = max_value
         mel_spec[
-            self.mel_image_size - 15:, self.mel_image_size - 20:, 1
-        ] = 255
-        mel_spec[self.mel_image_size - 15:, self.mel_image_size - 20:, 2] = (
-            255 * self.df.loc[ix, "norm_latitude"]
+            self.mel_image_size - 10:, self.mel_image_size - 20:, 1
+        ] = max_value
+        mel_spec[self.mel_image_size - 10:, self.mel_image_size - 20:, 2] = (
+            max_value * self.df.loc[ix, "norm_latitude"]
         )
         return mel_spec
 
@@ -279,7 +276,10 @@ class MEL_Generator_Short(keras.utils.Sequence):
                         )
                         mel_spec = np.array(mel_spec)
                     if self.convert_to_rgb:
-                        mel_spec = np.round(mel_spec * 255)
+                        if self.type_img=='uint8':
+                            mel_spec = np.round(mel_spec * 255)
+                        else:
+                            mel_spec = np.float32(mel_spec)
                         mel_spec = np.repeat(
                             np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2
                         )
@@ -304,7 +304,10 @@ class MEL_Generator_Short(keras.utils.Sequence):
                     )
                     mel_spec = np.array(mel_spec)
                 if self.convert_to_rgb:
-                    mel_spec = np.round(mel_spec * 255)
+                    if self.type_img=='uint8':
+                        mel_spec = np.round(mel_spec * 255)
+                    else:
+                        mel_spec = np.float32(mel_spec)
                     mel_spec = np.repeat(
                         np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2
                     )
@@ -319,7 +322,10 @@ class MEL_Generator_Short(keras.utils.Sequence):
                         file_path, end_sec
                     )
             mel_spec = self.mel_provider.msg(wave)
-            mel_spec = np.round(mel_spec * 255)
+                if self.type_img=='uint8':
+                    mel_spec = np.round(mel_spec * 255)
+                else:
+                    mel_spec = np.float32(mel_spec)
             mel_spec = np.repeat(
                 np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2
             )
