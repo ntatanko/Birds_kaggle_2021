@@ -1,0 +1,1 @@
+{"SEED": 42, "IMG_SIZE": 260, "N_MELS": 260, "SAMPLE_RATE": 32000, "N_FFT": 2048, "SIGNAL_LENGTH": 5, "FREQ_MIN": 0, "FREQ_MAX": 16000, "WIN_LENGHT": 1024, "NOTE_PATH": null, "MODEL_PATH": "/app/src/test_gen/", "IMG_DTYPE": "uint8", "SIN_COS_IMG": true, "IMG_YEAR": true}

@@ -54,30 +54,35 @@ def prepare_dataset(df, signal_lenght = 5):
     df['start_sec'] = df['end_sec']-signal_lenght
     return df
 
-def make_dict_birds(df):
+def make_dict_birds(df, secondary=True):
     dict_birds = {}
     list_primary = df["primary_label"].unique().tolist()
-    list_secondary = []
-    for i in df["secondary_labels"]:
-        if type(i) != float:
-            i = i.split()
-            list_secondary.extend(i)
-    list_secondary = list(set(list_secondary))
-    labels = sorted(list(set(list_primary + list_secondary)))
+    if secondary:
+        list_secondary = []
+        for i in df["secondary_labels"]:
+            if type(i) != float:
+                i = i.split()
+                list_secondary.extend(i)
+        list_secondary = list(set(list_secondary))
+        labels = sorted(list(set(list_primary + list_secondary)))
+    else:
+        labels = sorted(list(set(list_primary)))
+    
     for i, bird in enumerate(labels):
         dict_birds[bird] = i
     df["label_id"] = df["primary_label"].replace(dict_birds)
     for i in df.index.tolist():
         if type(df.loc[i, "secondary_labels"]) != float:
-            labels = df.loc[i, "secondary_labels"].split()
+            secondary_labels = df.loc[i, "secondary_labels"].split()
             list_ids = []
-            for bird in labels:
-                list_ids.append(str(dict_birds[bird]))
+            for bird in secondary_labels:
+                if bird in dict_birds.keys():
+                    list_ids.append(str(dict_birds[bird]))
             df.loc[i, "secondary_labels_id"] = " ".join(list_ids)
     return  dict_birds, df
 
 
-def choose_ids(distance_delta=600, months_delta=2, years_delta=5, start_year = 2010):
+def choose_ids(distance_delta=600, months_delta=2, years_delta=5, start_year = 1980):
     import pandas as pd
     distances_df = pd.read_csv("/app/_data/distances.csv")
 #     dates_sites = pd.read_csv('/app/_data/dates_sites.csv')

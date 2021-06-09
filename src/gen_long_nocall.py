@@ -70,10 +70,10 @@ class Mel_Provider:
         wave = torch.tensor(wave.reshape([1, -1]).astype(np.float32)).to(self._device)
         mel_spec = self._melspectrogram(wave)[0].cpu().numpy()
         mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
-        if self.norm_mel:
-            mel_spec = (mel_spec - np.min(mel_spec)) / (
-                np.max(mel_spec) - np.min(mel_spec)
-            )
+#         if self.norm_mel:
+#             mel_spec = (mel_spec - np.min(mel_spec)) / (
+#                 np.max(mel_spec) - np.min(mel_spec)
+#             )
 
         mel_spec.astype(np.float32)
         return mel_spec
@@ -119,6 +119,8 @@ class MEL_Generator(keras.utils.Sequence):
         if self._shuffle:
             self._shuffle_samples()
 
+    if not os.path.exists('/app/_data/npy/short_mels_test/'):
+        os.mkdir('/app/_data/npy/short_mels_test/')
     def __len__(self):
         return self.df.shape[0] // self.batch_size
 
@@ -196,22 +198,36 @@ class MEL_Generator(keras.utils.Sequence):
         end_sec = self.df.loc[ix, "end_sec"]
         file_name = self.df.loc[ix, "filename"][:-4]
         new_filename = self.df.loc[ix, "row_id"]
-        start_sec = end_sec - 5
         if os.path.isfile(self.short_mel_dir + new_filename + ".npy"):
             mel_spec = np.load(self.short_mel_dir + new_filename + ".npy")
-            long_mel_spec = np.load(self.long_mel_dir + file_name + ".npy")
         else:
             if os.path.isfile(self.long_mel_dir + file_name + ".npy"):
-                long_mel_spec = np.load(self.long_mel_dir + file_name + ".npy")
+                try:
+                    long_mel_spec = np.load(self.long_mel_dir + file_name + ".npy")
+                except:
+                    wave, filename = self.get_audio(
+                    file_path,
+                )
+                    long_mel_spec = self.long_msg(wave, filename, save_mel=True)
 
             else:
                 wave, filename = self.get_audio(
                     file_path,
                 )
                 long_mel_spec = self.long_msg(wave, filename, save_mel=True)
+            min_ = long_mel_spec.min()
+            max_ = long_mel_spec.max()
 
-            start = int((start_sec * self.mel_image_size) / self.signal_lenght)
-            mel_spec = long_mel_spec[:, start : start + self.mel_image_size]
+            wave, filename  = self.get_audio(
+                    file_path
+                )
+            end = int(end_sec * self.sample_rate)
+            start = end - self.sample_rate*self.signal_lenght
+            wave_short = wave[start:end]
+            mel_spec = self.mel_provider.msg(wave_short)
+            mel_spec = (mel_spec - min_) / (
+                max_ - min_
+            )
 
             if mel_spec.shape != (self.mel_image_size, self.mel_image_size):
                 mel_spec = Image.fromarray(mel_spec)
@@ -219,21 +235,20 @@ class MEL_Generator(keras.utils.Sequence):
                     (self.mel_image_size, self.mel_image_size),
                     Image.BICUBIC,
                 )
-                mel_spec = np.array(mel_spec)
-            # return as rgb uint8 image
+                mel_spec=np.array(mel_spec)
+
             if self.convert_to_rgb:
                 mel_spec = np.round(mel_spec * 255)
                 mel_spec = np.repeat(np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2)
-
+            np.save(self.short_mel_dir + new_filename, mel_spec)
         y = np.zeros(self.n_classes, "uint8")
         y[label_id] = 1
         assert mel_spec.shape == (self.n_mels, self.mel_image_size, 3) or (
             self.n_mels,
             self.mel_image_size,
         )
-        return {"mel_spec": mel_spec, "y": y, "long_mel_spec": long_mel_spec}
+        return {"mel_spec": mel_spec, "y": y}
 
     def _shuffle_samples(self):
         self.df = self.df.sample(frac=1, random_state=self.seed).reset_index(drop=True)
-
 

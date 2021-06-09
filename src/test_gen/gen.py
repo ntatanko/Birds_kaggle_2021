@@ -27,6 +27,47 @@ from tensorflow import keras
 
 
 class Functions:
+    def make_df(path, sample_rate, df_coord_sites):
+        list_files = []
+        for filename in os.listdir(path):
+            if filename.split(".")[-1] == "ogg":
+                list_files.append(filename)
+                wave, _ = librosa.load(path + filename, sr=sample_rate)
+                duration = len(wave)/sample_rate
+        df = pd.DataFrame()
+        for filename in list_files:
+            df.loc[filename, "filename"] = filename
+            df.loc[filename, "audio_id"] = filename.split("_")[0]
+            df.loc[filename, "site"] = filename.split("_")[1]
+            df.loc[filename, "date"] = filename.split("_")[2].split(".")[0]
+            df.loc[filename, "duration"] = duration
+        df["date"] = pd.to_datetime(df["date"], format="%Y%m%d")
+        df["month"] = df["date"].dt.month
+        df["year"] = df["date"].dt.year
+        df = df.merge(df_coord_sites, on="site", how="left")
+        df["sin_month"] = np.sin(2 * np.pi * df["month"] / 12)
+        df["cos_month"] = np.cos(2 * np.pi * df["month"] / 12)
+        df["sin_longitude"] = np.sin(2 * np.pi * (df["longitude"]) / 360)
+        df["cos_longitude"] = np.cos(2 * np.pi * (df["longitude"]) / 360)
+        df["norm_latitude"] = (df["latitude"] + 90) / 180
+        df["audio_id"] = df["audio_id"]
+        df = df.reset_index(drop=True)
+        long_df = pd.DataFrame(columns=['row_id', 'end_sec', 'filename'])
+        for i in df.index.tolist():
+            audio_id = df.loc[i, "audio_id"]
+            duration = df.loc[i, 'duration']
+            site = df.loc[i, "site"]
+            for end_sec in range(
+                5, int(duration) + 1, 5
+            ):
+                row_id = "_".join([str(audio_id), site, str(end_sec)])
+                long_df.loc[row_id,'row_id'] = row_id
+                long_df.loc[row_id, 'end_sec'] = end_sec
+                long_df.loc[row_id, 'filename'] =df.loc[i, "filename"]
+        df = long_df.merge(df, on='filename', how='left')
+        return df
+    
+
     def row_wise_f1_score_micro(y_true, y_pred):
         F1 = []
         for preds, trues in zip(y_pred, y_true):
@@ -89,6 +130,31 @@ class Functions:
                 dict_pred[list_row_id[i]] = file_y_preds[i]
         return dict_pred
 
+    def pred_from_dict(df, cols, thresh = 0.5, as_is=False):
+        labels = sorted(list(dict_birds.keys()))
+        submission = pd.DataFrame(columns = ['row_id', 'birds'])
+        for ix in df.index.tolist():
+            prediction = df.loc[ix,cols].values
+            row_id = df.loc[ix,'row_id']
+            nocall_ix = labels.index("nocall")
+            submission.loc[ix, 'row_id'] = row_id
+            if as_is:
+                birds = ' '.join([labels[i] for i in range(len(labels)) if prediction[i]>thresh])
+                submission.loc[ix, 'birds'] = birds
+            else:
+                if np.argmax(prediction)==nocall_ix:
+                    if np.sum(prediction>thresh)<3:
+                        submission.loc[ix, 'birds'] = 'nocall'
+                    else:
+                        prediction[nocall_ix]=0
+                        birds = ' '.join([labels[i] for i in range(len(labels)) if prediction[i]>thresh])
+                else:    
+                    birds = ' '.join([labels[i] for i in range(len(labels)) if prediction[i]>thresh and i!=nocall_ix])
+                    submission.loc[ix, 'birds'] = birds
+        submission['birds'] = submission['birds'].replace('', 'nocall')
+        submission['birds'] = submission['birds'].fillna('nocall')
+        return submission
+
 
 class Mel_Provider:
     def __init__(
@@ -142,7 +208,6 @@ class Test_Kaggle:
         self,
         path,
         df_coord_sites,
-        dict_birds,
         n_fft,
         sample_rate,
         mel_image_size,
@@ -165,7 +230,6 @@ class Test_Kaggle:
         self.mel_provider = mel_provider
         self.n_fft = n_fft
         self.df_coord_sites = df_coord_sites
-        self.dict_birds = dict_birds
         self.img_dtype = img_dtype
 
     def make_df(self):
@@ -204,8 +268,11 @@ class Test_Kaggle:
         df["audio_id"] = df["audio_id"]
         return df
 
-    def get_audio(self, file_path):
-        wave, sr = librosa.load(file_path, sr=self.sample_rate)
+    def get_audio(self, file_path, end_sec):
+        wave, _ = librosa.load(file_path, sr=self.sample_rate)
+        end = int(end_sec * self.sample_rate)
+        start = int(end - (self.signal_lenght * self.sample_rate))
+        wave = wave[start:end]
         return wave
 
 
@@ -217,18 +284,15 @@ class Test_Kaggle:
             wave_name = df.loc[ix, "filename"]
             audio_id = df.loc[ix, "audio_id"]
             site = df.loc[ix, "site"]
-            wave = self.get_audio(path + wave_name)
-            mel_spec = self.mel_provider.msg(wave)
+            
+            
             list_mels = []
             for end_sec in range(
                 5, int(df.loc[ix, "duration"]) + 1, self.signal_lenght
             ):
                 row_id = "_".join([str(audio_id), site, str(end_sec)])
-                start = int(
-                    ((end_sec - self.signal_lenght) * self.mel_image_size)
-                    / self.signal_lenght
-                )
-                mel_short = mel_spec[:, start : start + self.mel_image_size]
+                wave = self.get_audio(path + wave_name, end_sec)
+                mel_short = self.mel_provider.msg(wave)
 
                 if self.norm_mel_short:
                     mel_short = (mel_short - np.min(mel_short)) / (
