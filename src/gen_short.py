@@ -20,7 +20,9 @@ import librosa
 from PIL import Image
 from tensorflow import keras
 
+
 # +
+
 
 class Mel_Provider:
     def __init__(
@@ -45,7 +47,7 @@ class Mel_Provider:
         self.norm_global = norm_global
         if hop_length is None:
             self.hop_length = int(
-                self.signal_lenght * self.sample_rate / (self.mel_image_size-1)
+                self.signal_lenght * self.sample_rate / (self.mel_image_size - 1)
             )
         else:
             self.hop_length = hop_length
@@ -78,6 +80,7 @@ class Mel_Provider:
 
 # -
 
+
 class MEL_Generator_Short(keras.utils.Sequence):
     def __init__(
         self,
@@ -88,7 +91,7 @@ class MEL_Generator_Short(keras.utils.Sequence):
         signal_lenght,
         n_classes,
         seed,
-        img_dtype = 'uint8',
+        img_dtype="uint8",
         mel_provider=Mel_Provider,
         return_primary_labels=False,
         return_secondary_labels=False,
@@ -134,7 +137,6 @@ class MEL_Generator_Short(keras.utils.Sequence):
         self,
         file_path,
         end_sec=None,
-
     ):
         wave_dir = self.wave_dir
         file_name = file_path.split("/")[-1][:-4]
@@ -155,14 +157,14 @@ class MEL_Generator_Short(keras.utils.Sequence):
                     os.mkdir(wave_dir)
                 np.save(wave_dir + file_name, wave)
         if end_sec is not None:
-            if end_sec<signal_lenght:
-                end_sec=signal_lenght
-            end = int(end_sec*self.sample_rate)
-            end = end if end < len(wave) else len(wave)-100
-            start = int(end-(signal_lenght*self.sample_rate))
-            if start<0:
+            if end_sec < signal_lenght:
+                end_sec = signal_lenght
+            end = int(end_sec * self.sample_rate)
+            end = end if end < len(wave) else len(wave) - 100
+            start = int(end - (signal_lenght * self.sample_rate))
+            if start < 0:
                 start = 0
-                end = signal_lenght*self.sample_rate
+                end = signal_lenght * self.sample_rate
             wave = wave[start:end]
         return wave
 
@@ -189,62 +191,58 @@ class MEL_Generator_Short(keras.utils.Sequence):
         return b_X, b_Y
 
     def sin_cos(self, mel_spec, ix, img_dtype):
-        if self.img_dtype=='uint8':
+        if self.img_dtype == "uint8":
             max_value = 255
         else:
-            max_value=1
-        min_value=0
-        mel_spec[self.mel_image_size - 10:, :20, 0] = (
+            max_value = 1
+        min_value = 0
+        mel_spec[self.mel_image_size - 10 :, :20, 0] = (
             max_value * self.df.loc[ix, "sin_month"]
         )
-        mel_spec[self.mel_image_size - 10:, :20, 1] = max_value
-        mel_spec[self.mel_image_size - 10:, :20, 2] = max_value
-        mel_spec[self.mel_image_size - 10:, 20:40, 0] = max_value
-        mel_spec[self.mel_image_size - 10:, 20:40, 1] = (
+        mel_spec[self.mel_image_size - 10 :, :20, 1] = max_value
+        mel_spec[self.mel_image_size - 10 :, :20, 2] = max_value
+        mel_spec[self.mel_image_size - 10 :, 20:40, 0] = max_value
+        mel_spec[self.mel_image_size - 10 :, 20:40, 1] = (
             max_value * self.df.loc[ix, "cos_month"]
         )
-        mel_spec[self.mel_image_size - 10:, 20:40, 2] = max_value
+        mel_spec[self.mel_image_size - 10 :, 20:40, 2] = max_value
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 60: self.mel_image_size - 40,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 60 : self.mel_image_size - 40,
             0,
         ] = (
             max_value * self.df.loc[ix, "sin_longitude"]
         )
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 60: self.mel_image_size - 40,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 60 : self.mel_image_size - 40,
             1,
         ] = max_value
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 60: self.mel_image_size - 40,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 60 : self.mel_image_size - 40,
             2,
         ] = max_value
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 40: self.mel_image_size - 20,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 40 : self.mel_image_size - 20,
             0,
         ] = max_value
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 40: self.mel_image_size - 20,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 40 : self.mel_image_size - 20,
             1,
         ] = (
             max_value * self.df.loc[ix, "cos_longitude"]
         )
         mel_spec[
-            self.mel_image_size - 10:,
-            self.mel_image_size - 40: self.mel_image_size - 20,
+            self.mel_image_size - 10 :,
+            self.mel_image_size - 40 : self.mel_image_size - 20,
             2,
         ] = max_value
-        mel_spec[
-            self.mel_image_size - 10:, self.mel_image_size - 20:, 0
-        ] = max_value
-        mel_spec[
-            self.mel_image_size - 10:, self.mel_image_size - 20:, 1
-        ] = max_value
-        mel_spec[self.mel_image_size - 10:, self.mel_image_size - 20:, 2] = (
+        mel_spec[self.mel_image_size - 10 :, self.mel_image_size - 20 :, 0] = max_value
+        mel_spec[self.mel_image_size - 10 :, self.mel_image_size - 20 :, 1] = max_value
+        mel_spec[self.mel_image_size - 10 :, self.mel_image_size - 20 :, 2] = (
             max_value * self.df.loc[ix, "norm_latitude"]
         )
         return mel_spec
@@ -262,10 +260,8 @@ class MEL_Generator_Short(keras.utils.Sequence):
                 try:
                     mel_spec = np.load(self.short_mel_dir + new_filename + ".npy")
                 except:
-                    print('cannot load', self.short_mel_dir + new_filename + ".npy")
-                    wave = self.get_audio(
-                            file_path, end_sec
-                        )
+                    print("cannot load", self.short_mel_dir + new_filename + ".npy")
+                    wave = self.get_audio(file_path, end_sec)
                     mel_spec = self.mel_provider.msg(wave)
 
                     if mel_spec.shape != (self.mel_image_size, self.mel_image_size):
@@ -276,7 +272,7 @@ class MEL_Generator_Short(keras.utils.Sequence):
                         )
                         mel_spec = np.array(mel_spec)
                     if self.convert_to_rgb:
-                        if self.type_img=='uint8':
+                        if self.type_img == "uint8":
                             mel_spec = np.round(mel_spec * 255)
                         else:
                             mel_spec = np.float32(mel_spec)
@@ -288,12 +284,8 @@ class MEL_Generator_Short(keras.utils.Sequence):
                     if not os.path.exists(self.short_mel_dir):
                         os.mkdir(self.short_mel_dir)
                     np.save(self.short_mel_dir + new_filename, mel_spec)
-                
-                
             else:
-                wave = self.get_audio(
-                        file_path, end_sec
-                    )
+                wave = self.get_audio(file_path, end_sec)
                 mel_spec = self.mel_provider.msg(wave)
 
                 if mel_spec.shape != (self.mel_image_size, self.mel_image_size):
@@ -304,7 +296,7 @@ class MEL_Generator_Short(keras.utils.Sequence):
                     )
                     mel_spec = np.array(mel_spec)
                 if self.convert_to_rgb:
-                    if self.type_img=='uint8':
+                    if self.type_img == "uint8":
                         mel_spec = np.round(mel_spec * 255)
                     else:
                         mel_spec = np.float32(mel_spec)
@@ -318,17 +310,13 @@ class MEL_Generator_Short(keras.utils.Sequence):
                 np.save(self.short_mel_dir + new_filename, mel_spec)
 
         if self.augment:
-            wave = self.get_audio(
-                        file_path, end_sec
-                    )
+            wave = self.get_audio(file_path, end_sec)
             mel_spec = self.mel_provider.msg(wave)
-                if self.type_img=='uint8':
-                    mel_spec = np.round(mel_spec * 255)
-                else:
-                    mel_spec = np.float32(mel_spec)
-            mel_spec = np.repeat(
-                np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2
-            )
+            if self.type_img == "uint8":
+                mel_spec = np.round(mel_spec * 255)
+            else:
+                mel_spec = np.float32(mel_spec)
+            mel_spec = np.repeat(np.expand_dims(mel_spec.astype(np.uint8), 2), 3, 2)
             mel_spec = self.sin_cos(mel_spec, ix)
 
         primary_y = np.zeros(self.n_classes)
@@ -357,18 +345,13 @@ class MEL_Generator_Short(keras.utils.Sequence):
 
         # sample weight
         if self.sample_weight:
-            sw = self.df.loc[ix, "class_weights"]*rating  # type: ignore
+            sw = self.df.loc[ix, "class_weights"] * rating  # type: ignore
 
         assert mel_spec.shape == (self.n_mels, self.mel_image_size, 3) or (
             self.n_mels,
             self.mel_image_size,
         )
         return mel_spec, y
-#             "sample_weight": sw,
-#             "filename": file_name,
-#             "file_path": file_path,
-#             "short_file_path": self.short_mel_dir + new_filename + ".npy",
-#         }
 
     def _shuffle_samples(self):
         self.df = self.df.sample(frac=1, random_state=self.seed).reset_index(drop=True)
