@@ -63,7 +63,7 @@ RUN echo "cp -r /root/.jupyter ${APP_DIR}/docker/res/root/ && \
 RUN chmod +x /usr/bin/save-jupyter-config
 
 # startup commands
-ARG JUPYTER_TOKEN="142280ny"
+ARG JUPYTER_TOKEN="mytoken"
 RUN echo "tensorboard --logdir=${APP_DIR}/.tensorboard --bind_all &" >> /cmd
 RUN echo "jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='${JUPYTER_TOKEN}' &" >> /cmd
 RUN echo "sleep infinity" >> /cmd
